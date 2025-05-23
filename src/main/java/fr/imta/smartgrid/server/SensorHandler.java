@@ -47,19 +47,14 @@ public class SensorHandler implements Handler<RoutingContext> {
         }else if (event.request().method().toString() == "POST"){
             JsonObject json = event.body().asJsonObject();
             String id = event.pathParam("id");
+            
             if (event.pathParam("id")!=null){
                 Sensor s = (Sensor) db.find(Sensor.class, Integer.parseInt(id));
                 
                 s.setName(json.getString("name"));
-                s.setName(json.getString("description"));
-                s.setName(json.getString("owners"));
-                
-                
-                /* Person persone= (Person) db.find(Person.class, Integer.parseInt(id));
-                personne.setFirstName(first_name);
-                personne.setLastName(last_name);
-                personne.setGrid(user_id);
-                personne.setSensors(owned_sensors); */
+                s.setDescription(json.getString("description"));
+                s.setOwners(json.getJsonArray("owners").getList());
+                System.out.println("\n\n yay \n\n"+s.toString());
             }
         }
 

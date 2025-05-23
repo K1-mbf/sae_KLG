@@ -41,7 +41,27 @@ public abstract class Sensor {
     public JsonObject toJSON() {
         JsonObject res = new JsonObject();
 
-        //TODO
+        res.put("id", id);
+        res.put("name", name);
+        res.put("description", description);
+        res.put("grid", grid.getId());
+        res.put("dtype", this.getClass().getSimpleName());
+        res.put("available_measurements", measurements);
+        res.put("owners", owners);
+        res.put("kind", this.getClass().getSimpleName());
+        if (this instanceof EVCharger) {
+            EVCharger charger = (EVCharger) this;
+            res.put("type", charger.getType());
+            res.put("maxAmp", charger.getMaxAmp());
+            res.put("voltage", charger.getVoltage());
+        } else if (this instanceof WindTurbine) {
+            WindTurbine turbine = (WindTurbine) this;
+            res.put("height", turbine.getHeight());
+            res.put("blade_length", turbine.getBladeLength());
+        } else if (this instanceof SolarPanel) {
+            SolarPanel panel = (SolarPanel) this;
+            res.put("efficiency", panel.getEfficiency());
+        }
 
         return res;
     }
