@@ -49,7 +49,11 @@ public class SensorHandler implements Handler<RoutingContext> {
             String id = event.pathParam("id");
             if (event.pathParam("id")!=null){
                 Sensor s = (Sensor) db.find(Sensor.class, Integer.parseInt(id));
+                
                 s.setName(json.getString("name"));
+                s.setName(json.getString("description"));
+                s.setName(json.getString("owners"));
+                
                 
                 /* Person persone= (Person) db.find(Person.class, Integer.parseInt(id));
                 personne.setFirstName(first_name);
