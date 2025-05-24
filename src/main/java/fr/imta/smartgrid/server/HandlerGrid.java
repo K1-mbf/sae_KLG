@@ -5,6 +5,7 @@ import java.util.List;
 import fr.imta.smartgrid.model.EVCharger;
 import fr.imta.smartgrid.model.Sensor;
 import io.vertx.core.Handler;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.persistence.EntityManager;
@@ -23,7 +24,7 @@ public class HandlerGrid implements Handler<RoutingContext> {
        
         
         if (event.currentRoute().getName().matches("/grid/:id/production") && event.pathParam("id").matches("[0-9]+")){
-            List<Object[]> grids = db.createNativeQuery(
+            Double prod = (Double) db.createNativeQuery(
                 "SELECT SUM(d.value) " +
                 "FROM Grid g " +
                 "JOIN Sensor s ON s.grid = g.id " +
@@ -31,23 +32,27 @@ public class HandlerGrid implements Handler<RoutingContext> {
                 "JOIN Measurement m ON m.sensor = s.id " +
                 "JOIN Datapoint d ON d.measurement = m.id " +
                 "WHERE g.id = "+ event.pathParam("id")
-            ).setParameter("id", Integer.parseInt(event.pathParam("id"))).getResultList();
-            event.json(grids);}
+            ).getSingleResult();
 
-            if (event.currentRoute().getName().matches("/grid/:id/consumption") && event.pathParam("id").matches("[0-9]+")) {
-                List<Object[]> grids = db.createNativeQuery(
-                    "SELECT SUM(d.value) " +
-                    "FROM Grid g " +
-                    "JOIN Sensor s ON s.grid = g.id " +
-                    "JOIN Consumer c ON c.id = s.id " +
-                    "JOIN Measurement m ON m.sensor = s.id " +
-                    "JOIN Datapoint d ON d.measurement = m.id " +
-                    "WHERE g.id = " + event.pathParam("id")
-                ).setParameter("id", Integer.parseInt(event.pathParam("id"))).getResultList();
-                event.json(grids);
-            
-            }
-        if (event.pathParam("id") == null){
+
+            event.json(prod);
+        }
+
+        else if (event.currentRoute().getName().matches("/grid/:id/consumption") && event.pathParam("id").matches("[0-9]+")) {
+            Double cons = (Double) db.createNativeQuery(
+                "SELECT SUM(d.value) " +
+                "FROM Grid g " +
+                "JOIN Sensor s ON s.grid = g.id " +
+                "JOIN Consumer c ON c.id = s.id " +
+                "JOIN Measurement m ON m.sensor = s.id " +
+                "JOIN Datapoint d ON d.measurement = m.id " +
+                "WHERE g.id = " + event.pathParam("id")
+            ).getSingleResult();
+
+            event.json(cons);
+        
+        }
+        else if (event.pathParam("id") == null){
             List<Integer> grids = (List<Integer>) db.createNativeQuery("SELECT id FROM grid").getResultList();
             event.json(grids);
         }

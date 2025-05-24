@@ -3,6 +3,8 @@ package fr.imta.smartgrid.model;
 import java.util.ArrayList;
 import java.util.List;
 
+
+
 import io.vertx.core.json.JsonObject;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -105,6 +107,23 @@ public abstract class Sensor {
     public void setOwners(List<Person> owners) {
         this.owners = owners;
     }
+
+    public void addOwner(Person owner) {
+    if (owner == null) return;
+
+    // Avoid duplicates using a simple check
+    for (Person p : this.owners) {
+        if (p.getId() == owner.getId()) {
+            return; // Owner already exists, no need to add
+        }
+    }
+
+    this.owners.add(owner);
+    // If needed, also add this sensor to the owner's sensors (if bidirectional)
+    //owner.getSensors().add(this);
+    }
+
+    
 
     public List<Measurement> getMeasurements() {
         return measurements;

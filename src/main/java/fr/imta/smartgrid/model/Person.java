@@ -71,6 +71,21 @@ public class Person {
     public void setSensors(List<Sensor> sensors) {
         this.sensors = sensors;
     }
+    
+    public void addSensor(Sensor sensor) {
+    if (sensor == null) return;
+
+    // Avoid duplicates using a simple check
+    for (Sensor s : this.sensors) {
+        if (s.getId() == sensor.getId()) {
+            return; // Owner already exists, no need to add
+        }
+    }
+
+    this.sensors.add(sensor);
+    // If needed, also add this person to the person's Person (if bidirectional)
+    sensor.getOwners().add(this);
+    }
 
     
 }

@@ -45,7 +45,7 @@ public class VertxServer {
 
         router.get("/persons").handler(new HandlerPersons(this.db));
         router.get("/person/:id").handler(new HandlerPersons(this.db));
-        //router.post("/person/:id").handler(new HandlerPersons(this.db));
+        router.post("/person/:id").handler(new HandlerPersons(this.db));
         router.delete("/delete/person/:id").handler(new HandlerPersons(this.db));
 
 
@@ -59,6 +59,9 @@ public class VertxServer {
 
         router.get("/measurement/:id/values").handler(new HandlerMeasurement(this.db));
         router.get("/measurement/:id").handler(new HandlerMeasurement(this.db));
+
+
+        router.post("/ingress/windturbine").handler(new HandlerWindTurbine(this.db));
 
         
         
