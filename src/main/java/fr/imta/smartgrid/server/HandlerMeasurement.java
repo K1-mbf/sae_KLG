@@ -41,7 +41,7 @@ public class HandlerMeasurement implements Handler<RoutingContext> {
             res.put("measurement_id", Integer.parseInt(id));
 
 
-             List<Object[]>  values = (List<Object[]>) db.createNativeQuery(
+            List<Object[]>  values = (List<Object[]>) db.createNativeQuery(
                     "SELECT timestamp, value FROM datapoint WHERE measurement = " + id + 
                     " AND timestamp BETWEEN " + from + " AND " + to + 
                     " ORDER BY timestamp"

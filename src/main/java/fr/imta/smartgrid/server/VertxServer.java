@@ -47,6 +47,7 @@ public class VertxServer {
         router.get("/person/:id").handler(new HandlerPersons(this.db));
         router.post("/person/:id").handler(new HandlerPersons(this.db));
         router.delete("/delete/person/:id").handler(new HandlerPersons(this.db));
+        router.put("/person").handler(new HandlerPersons(this.db));
 
 
         router.post("/sensor/:id").handler(new SensorHandler(this.db));

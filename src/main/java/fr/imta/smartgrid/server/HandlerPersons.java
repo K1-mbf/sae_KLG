@@ -2,14 +2,17 @@ package fr.imta.smartgrid.server;
 
 import java.util.List;
 
+
 import fr.imta.smartgrid.model.Consumer;
 import fr.imta.smartgrid.model.EVCharger;
+import fr.imta.smartgrid.model.Grid;
 import fr.imta.smartgrid.model.Person;
 import fr.imta.smartgrid.model.Producer;
 import fr.imta.smartgrid.model.Sensor;
 import fr.imta.smartgrid.model.SolarPanel;
 import fr.imta.smartgrid.model.WindTurbine;
 import io.vertx.core.Handler;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.persistence.EntityManager;
@@ -45,9 +48,6 @@ public class HandlerPersons implements Handler<RoutingContext> {
             
             event.json(res);
 
-        }else if (event.currentRoute().getName().matches("/delete/person/:id") && event.pathParam("id").matches("[0-9]+")){
-            Person persone = (Person) db.find(Person.class, Integer.parseInt(event.pathParam("id")));
-            db.remove(persone);
         }else if (event.currentRoute().getName().matches("/persons")) {
             List<Integer> persons = (List<Integer>) db.createNativeQuery("SELECT id FROM person").getResultList();
             event.json(persons);
@@ -55,78 +55,116 @@ public class HandlerPersons implements Handler<RoutingContext> {
             event.end("error 404: Not found");
         }
         
-    }else if (event.request().method().toString() == "POST"){
+        }else if (event.request().method().toString() == "POST"){
 
-            //System.out.println("\n\n\n C'est un post wooooooo \n\n\n");
+            
             JsonObject json = event.body().asJsonObject();
             String id = event.pathParam("id");
             
             if (event.pathParam("id")!=null){
-                Sensor s = (Sensor) db.find(Sensor.class, Integer.parseInt(id));
+                Person p = (Person) db.find(Person.class, Integer.parseInt(id));
 
-                if (json.containsKey("name")) {
-                    s.setName(json.getString("name"));
+                if (json.containsKey("first_name")){
+                    p.setFirstName(json.getString("first_name"));
                 }
-                if (json.containsKey("description")) {
-                    s.setDescription(json.getString("description"));
+                if (json.containsKey("last_name")){
+                    p.setLastName(json.getString("last_name"));
                 }
-                if (json.containsKey("owners")) {
-                    s.getOwners().clear(); // Optional: clear if replacing
-                    for (Integer p : (List<Integer>) json.getJsonArray("owners").getList()) {
-                        s.addOwner(db.find(Person.class, p));
-                    }
-                }
-
-                if (s instanceof Producer) {
-                    Producer p = (Producer) s;
-                    if (json.containsKey("power_source")) {
-                        p.setPowerSource(json.getString("power_source"));
-                    }
-                } else if (s instanceof Consumer) {
-                    Consumer c = (Consumer) s;
-                    if (json.containsKey("max_power")) {
-                        c.setMaxPower(json.getDouble("max_power"));
+                if (json.containsKey("grid") && json.getInteger("grid") != null) {
+                    Grid grid = db.find(Grid.class, json.getInteger("grid"));
+                    if (grid != null) {
+                        p.setGrid(grid);
                     }
                 }
-
-                if (s instanceof EVCharger) {
-                    EVCharger charger = (EVCharger) s;
-                    if (json.containsKey("type")) {
-                        charger.setType(json.getString("type"));
-                    }
-                    if (json.containsKey("voltage")) {
-                        charger.setVoltage(json.getInteger("voltage"));
-                    }
-                    if (json.containsKey("maxAmp")) {
-                        charger.setMaxAmp(json.getInteger("maxAmp"));
-                    }
-                } else if (s instanceof WindTurbine) {
-                    WindTurbine turbine = (WindTurbine) s;
-                    if (json.containsKey("height")) {
-                        turbine.setHeight(json.getDouble("height"));
-                    }
-                    if (json.containsKey("blade_length")) {
-                        turbine.setBladeLength(json.getDouble("blade_length"));
-                    }
-                } else if (s instanceof SolarPanel) {
-                    SolarPanel panel = (SolarPanel) s;
-                    if (json.containsKey("efficiency")) {
-                        panel.setEfficiency(json.getInteger("efficiency"));
+                if (json.containsKey("owned_sensors")) {
+                    p.getSensors().clear(); // Optional: clear if replacing
+                    for (Integer s : (List<Integer>) json.getJsonArray("owned_sensors").getList()) {
+                        Sensor sensor = db.find(Sensor.class, s);
+                        if (sensor != null) {
+                            p.addSensor(sensor);
+                        }
                     }
                 }
+                
 
                 // when you want to make change to the DB you need to start a transaction
                 db.getTransaction().begin();
                 // then you can register your new or modified objects to be saved
-                db.merge(s);
+                db.merge(p);
                 // finally you can commit the change
                 db.getTransaction().commit();
 
                 
                 
-                event.response().setStatusCode(200).end("Sensor updated successfully");
+                event.response().setStatusCode(200).end("Person updated successfully");
+            }
+        }else if (event.request().method().toString() == "DELETE"){
+            System.out.println("DELETE request received for person with ID: " + event.pathParam("id"));
+            String id = event.pathParam("id");
+            Person p = (Person) db.find(Person.class, Integer.parseInt(id));
+            if (p != null) {
+                try{
+                    db.getTransaction().begin();
+                    db.remove(p);
+                    db.getTransaction().commit();
+                    event.response().setStatusCode(200).end("Person deleted successfully");
+                } catch (Exception e) {
+                    //db.getTransaction().rollback();
+                    event.response().setStatusCode(500).end("Error deleting person: " + e.getMessage());
+                }
+            } else {
+                event.response().setStatusCode(404).end("Person not found");
+            }
+        }else if (event.request().method().toString() == "PUT") {
+
+
+            System.out.println("PUT request received for person with ID: " + event.pathParam("id"));
+
+            JsonObject json = event.body().asJsonObject();
+
+            
+            Person p = new Person();
+
+            if (json.containsKey("first_name")) {
+                p.setFirstName(event.pathParam("first_name"));
+            }
+            if (json.containsKey("last_name")) {
+                p.setLastName(event.pathParam("last_name"));
+            }
+            if (json.containsKey("grid")) {
+                Grid grid = db.find(Grid.class, json.getInteger("grid"));
+                if (grid != null) {
+                    p.setGrid(grid);
+                }
+            }
+            if (json.containsKey("owned_sensors")) {
+                p.getSensors().clear(); // Optional: clear if replacing
+                for (Integer s : (List<Integer>) json.getJsonArray("owned_sensors").getList()) {
+                    Sensor sensor = db.find(Sensor.class, s);
+                    if (sensor != null) {
+                        p.addSensor(sensor);
+                    }
+                }
+            }
+            if (p != null) {
+                try{
+                    db.getTransaction().begin();
+                    db.persist(p);
+                    db.getTransaction().commit();
+                    event.response().setStatusCode(200).end("Person updated successfully");
+
+                    JsonObject res = new JsonObject();
+                    res.put("id", p.getId());
+                    event.json(res);
+                } catch (Exception e) {
+                    //db.getTransaction().rollback();
+                    event.response().setStatusCode(500).end("Error updating person: " + e.getMessage());
+                }
+            } else {
+                event.response().setStatusCode(404).end("Person not found");
             }
         }
+
     }
 
 }
