@@ -2,7 +2,6 @@ package fr.imta.smartgrid.server;
 
 import java.util.List;
 
-
 import fr.imta.smartgrid.model.Consumer;
 import fr.imta.smartgrid.model.EVCharger;
 import fr.imta.smartgrid.model.Grid;
@@ -12,20 +11,23 @@ import fr.imta.smartgrid.model.Sensor;
 import fr.imta.smartgrid.model.SolarPanel;
 import fr.imta.smartgrid.model.WindTurbine;
 import io.vertx.core.Handler;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.persistence.EntityManager;
 
+// Classe qui gère les requêtes HTTP pour les personnes
 public class HandlerPersons implements Handler<RoutingContext> {
-    EntityManager db;
+    EntityManager db; // Gestionnaire d'entités pour accéder à la base de données
 
+    // Constructeur qui prend un EntityManager en paramètre
     public HandlerPersons(EntityManager db) {
         this.db = db;
     }
+
+    // Méthode principale appelée à chaque requête HTTP
     @Override
     public void handle(RoutingContext event) {
-
+        // Affichage d'informations de debug sur la requête reçue
         System.out.println("Route called: " + event.currentRoute().getName());
         System.out.println("Request HTTP method: " + event.request().method());
         System.out.println("We received these query parameters: " + event.queryParams());
@@ -33,41 +35,57 @@ public class HandlerPersons implements Handler<RoutingContext> {
         System.out.println("Value for the path param 'name': " + event.pathParam("name"));
         System.out.println("We received this body: " + event.body().asString());
 
-        if (event.request().method().toString() == "GET"){
-            if (event.currentRoute().getName().matches("/person/:id") && event.pathParam("id").matches("[0-9]+")){
-            Object[] sql = (Object[]) db.createNativeQuery("SELECT firstname, lastname, grid FROM person WHERE id = " +event.pathParam("id")).getSingleResult();
-            List<Integer> sql2 = (List<Integer>) db.createNativeQuery("SELECT DISTINCT Sensor.id FROM Sensor JOIN Person_Sensor ON Sensor.id = Person_Sensor.Sensor_id JOIN Person ON Person.id = Person_Sensor.person_id").getResultList();
-            
-            JsonObject res = new JsonObject();
+        String method = event.request().method().toString();
 
-            res.put("id", event.pathParam("id"));
-            res.put("first_name", sql[0]);
-            res.put("last_name", sql[1]);
-            res.put("grid", sql[2]);
-            res.put("owned_sensors",sql2);
-            
-            event.json(res);
+        // Gestion des requêtes GET
+        if (method.equals("GET")) {
+            // Si la route correspond à /person/:id et que l'id est un nombre
+            if (event.currentRoute().getName().matches("/person/:id") && event.pathParam("id").matches("[0-9]+")) {
+                // Récupération des informations de la personne depuis la base
+                Object[] sql = (Object[]) db.createNativeQuery(
+                    "SELECT firstname, lastname, grid FROM person WHERE id = " + event.pathParam("id")
+                ).getSingleResult();
 
-        }else if (event.currentRoute().getName().matches("/persons")) {
-            List<Integer> persons = (List<Integer>) db.createNativeQuery("SELECT id FROM person").getResultList();
-            event.json(persons);
-        }else {
-            event.end("error 404: Not found");
-        }
-        
-        }else if (event.request().method().toString() == "POST"){
+                // Récupération des capteurs associés à la personne
+                List<Integer> sql2 = (List<Integer>) db.createNativeQuery(
+                    "SELECT DISTINCT Sensor.id FROM Sensor " +
+                    "JOIN Person_Sensor ON Sensor.id = Person_Sensor.Sensor_id " +
+                    "JOIN Person ON Person.id = Person_Sensor.person_id"
+                ).getResultList();
 
-            
+                // Construction de la réponse JSON
+                JsonObject res = new JsonObject();
+                res.put("id", event.pathParam("id"));
+                res.put("first_name", sql[0]);
+                res.put("last_name", sql[1]);
+                res.put("grid", sql[2]);
+                res.put("owned_sensors", sql2);
+
+                // Envoi de la réponse
+                event.json(res);
+
+            // Si la route correspond à /persons, on retourne la liste des IDs
+            } else if (event.currentRoute().getName().matches("/persons")) {
+                List<Integer> persons = (List<Integer>) db.createNativeQuery("SELECT id FROM person").getResultList();
+                event.json(persons);
+            } else {
+                // Route non trouvée
+                event.end("error 404: Not found");
+            }
+
+        // Gestion des requêtes POST (mise à jour d'une personne)
+        } else if (method.equals("POST")) {
             JsonObject json = event.body().asJsonObject();
             String id = event.pathParam("id");
-            
-            if (event.pathParam("id")!=null){
-                Person p = (Person) db.find(Person.class, Integer.parseInt(id));
 
-                if (json.containsKey("first_name")){
+            if (id != null) {
+                Person p = db.find(Person.class, Integer.parseInt(id));
+
+                // Mise à jour des champs si présents dans le JSON
+                if (json.containsKey("first_name")) {
                     p.setFirstName(json.getString("first_name"));
                 }
-                if (json.containsKey("last_name")){
+                if (json.containsKey("last_name")) {
                     p.setLastName(json.getString("last_name"));
                 }
                 if (json.containsKey("grid") && json.getInteger("grid") != null) {
@@ -77,7 +95,7 @@ public class HandlerPersons implements Handler<RoutingContext> {
                     }
                 }
                 if (json.containsKey("owned_sensors")) {
-                    p.getSensors().clear(); // Optional: clear if replacing
+                    p.getSensors().clear();
                     for (Integer s : (List<Integer>) json.getJsonArray("owned_sensors").getList()) {
                         Sensor sensor = db.find(Sensor.class, s);
                         if (sensor != null) {
@@ -85,86 +103,109 @@ public class HandlerPersons implements Handler<RoutingContext> {
                         }
                     }
                 }
-                
 
-                // when you want to make change to the DB you need to start a transaction
+                // Sauvegarde des modifications en base
                 db.getTransaction().begin();
-                // then you can register your new or modified objects to be saved
                 db.merge(p);
-                // finally you can commit the change
                 db.getTransaction().commit();
 
-                
-                
                 event.response().setStatusCode(200).end("Person updated successfully");
             }
-        }else if (event.request().method().toString() == "DELETE"){
-            System.out.println("DELETE request received for person with ID: " + event.pathParam("id"));
-            String id = event.pathParam("id");
-            Person p = (Person) db.find(Person.class, Integer.parseInt(id));
-            if (p != null) {
-                try{
-                    db.getTransaction().begin();
-                    db.remove(p);
-                    db.getTransaction().commit();
-                    event.response().setStatusCode(200).end("Person deleted successfully");
-                } catch (Exception e) {
-                    //db.getTransaction().rollback();
-                    event.response().setStatusCode(500).end("Error deleting person: " + e.getMessage());
+
+        // Gestion des requêtes DELETE (suppression d'une personne)
+        } else if (method.equals("DELETE")) {
+            try {
+                System.out.println("DELETE request received for person with ID: " + event.pathParam("id"));
+
+                String idParam = event.pathParam("id");
+                if (idParam == null) {
+                    event.response().setStatusCode(400).end("Missing id");
+                    return;
                 }
-            } else {
-                event.response().setStatusCode(404).end("Person not found");
+
+                int id;
+                try {
+                    id = Integer.parseInt(idParam);
+                } catch (NumberFormatException e) {
+                    event.response().setStatusCode(400).end("Invalid id format");
+                    return;
+                }
+
+                Person person = db.find(Person.class, id);
+                if (person == null) {
+                    event.response().setStatusCode(404).end("Person not found");
+                    return;
+                }
+
+                // Suppression de la personne en base
+                db.getTransaction().begin();
+                db.remove(person);
+                db.getTransaction().commit();
+
+                event.response().setStatusCode(200).end("Person deleted successfully");
+            } catch (Exception e) {
+                e.printStackTrace();
+                if (db.getTransaction().isActive()) db.getTransaction().rollback();
+                event.response().setStatusCode(500).end("Internal error during deletion");
             }
-        }else if (event.request().method().toString() == "PUT") {
 
+        // Gestion des requêtes PUT (création d'une nouvelle personne)
+        } else if (method.equals("PUT")) {
+            System.out.println("\n\n\nPUT request received for person\n\n\n");
 
-            System.out.println("PUT request received for person with ID: " + event.pathParam("id"));
-
-            JsonObject json = event.body().asJsonObject();
-
-            
-            Person p = new Person();
-
-            if (json.containsKey("first_name")) {
-                p.setFirstName(event.pathParam("first_name"));
+            JsonObject json;
+            try {
+                json = event.body().asJsonObject();
+            } catch (Exception e) {
+                event.response().setStatusCode(500).end("Invalid JSON format");
+                return;
             }
-            if (json.containsKey("last_name")) {
-                p.setLastName(event.pathParam("last_name"));
+
+            // Vérification des champs obligatoires
+            if (json == null ||
+                !json.containsKey("first_name") ||
+                !json.containsKey("last_name") ||
+                !json.containsKey("grid")) {
+                event.response().setStatusCode(500).end("Missing required fields: first_name, last_name, or grid");
+                return;
             }
-            if (json.containsKey("grid")) {
+
+            try {
+                Person p = new Person();
+                p.setFirstName(json.getString("first_name"));
+                p.setLastName(json.getString("last_name"));
+
+                // Association à un grid existant
                 Grid grid = db.find(Grid.class, json.getInteger("grid"));
-                if (grid != null) {
-                    p.setGrid(grid);
+                if (grid == null) {
+                    event.response().setStatusCode(500).end("Invalid grid ID");
+                    return;
                 }
-            }
-            if (json.containsKey("owned_sensors")) {
-                p.getSensors().clear(); // Optional: clear if replacing
-                for (Integer s : (List<Integer>) json.getJsonArray("owned_sensors").getList()) {
-                    Sensor sensor = db.find(Sensor.class, s);
-                    if (sensor != null) {
-                        p.addSensor(sensor);
+                p.setGrid(grid);
+
+                // Ajout des capteurs si présents
+                if (json.containsKey("owned_sensors")) {
+                    for (Integer s : (List<Integer>) json.getJsonArray("owned_sensors").getList()) {
+                        Sensor sensor = db.find(Sensor.class, s);
+                        if (sensor != null) {
+                            p.addSensor(sensor);
+                        }
                     }
                 }
-            }
-            if (p != null) {
-                try{
-                    db.getTransaction().begin();
-                    db.persist(p);
-                    db.getTransaction().commit();
-                    event.response().setStatusCode(200).end("Person updated successfully");
 
-                    JsonObject res = new JsonObject();
-                    res.put("id", p.getId());
-                    event.json(res);
-                } catch (Exception e) {
-                    //db.getTransaction().rollback();
-                    event.response().setStatusCode(500).end("Error updating person: " + e.getMessage());
-                }
-            } else {
-                event.response().setStatusCode(404).end("Person not found");
+                // Sauvegarde de la nouvelle personne en base
+                db.getTransaction().begin();
+                db.persist(p);
+                db.getTransaction().commit();
+
+                JsonObject res = new JsonObject().put("id", p.getId());
+                event.response().setStatusCode(200).end(res.encode());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                if (db.getTransaction().isActive()) db.getTransaction().rollback();
+                event.response().setStatusCode(500).end("Error inserting person: " + e.getMessage());
             }
         }
-
     }
-
 }

@@ -3,19 +3,12 @@ package fr.imta.smartgrid.server;
 
 import java.util.List;
 
-import fr.imta.smartgrid.model.EVCharger;
-import fr.imta.smartgrid.model.Person;
-import fr.imta.smartgrid.model.Sensor;
-import fr.imta.smartgrid.model.SolarPanel;
-import fr.imta.smartgrid.model.WindTurbine;
-import fr.imta.smartgrid.model.Producer;
-import fr.imta.smartgrid.model.Consumer;
 import io.vertx.core.Handler;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.persistence.EntityManager;
-package fr.imta.smartgrid.handler;
+
 
 import fr.imta.smartgrid.model.*;
 import io.vertx.core.json.JsonObject;
@@ -24,7 +17,7 @@ import jakarta.persistence.EntityManager;
 
 import java.util.List;
 
-public class WindTurbineHandler {
+public class WindTurbineHandler implements Handler<RoutingContext>{
 
     private final EntityManager db;
 
@@ -32,7 +25,7 @@ public class WindTurbineHandler {
         this.db = db;
     }
 
-    public void handle(RoutingContext event) {{
+    public void handle(RoutingContext event) {
         try {
             JsonObject body = event.body().asJsonObject();
             if (body == null) {
@@ -49,7 +42,7 @@ public class WindTurbineHandler {
                 return;
             }
 
-             }
+            
 
             Double speed = data.getDouble("speed");
             Double power = data.getDouble("power");
@@ -61,7 +54,7 @@ public class WindTurbineHandler {
             WindTurbine turbine = db.find(WindTurbine.class, turbineId);
             if (turbine == null) {
                 event.response().setStatusCode(404).end("Turbine not found");
-                return;sae_KLG
+                return;
             }
 
             Sensor sensor = turbine;
@@ -144,10 +137,5 @@ public class WindTurbineHandler {
                 .sum();
         return totalJoules / 3600.0; // convert to Wh
     }
-    JsonObject response = new JsonObject().put("status", "success");
-event.response()
-    .putHeader("Content-Type", "application/json")
-    .setStatusCode(200)
-    .end(response.encode());
 
 }

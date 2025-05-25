@@ -1,5 +1,5 @@
-
 package fr.imta.smartgrid.server;
+
 
 import fr.imta.smartgrid.model.EVCharger;
 import fr.imta.smartgrid.model.Person;
@@ -13,34 +13,45 @@ import io.vertx.ext.web.RoutingContext;
 import jakarta.persistence.EntityManager;
 import java.util.*;
 
-
+// Classe HandlerProducer qui implémente l'interface Handler pour gérer les requêtes HTTP
 public class HandlerProducer implements Handler<RoutingContext> {
-    EntityManager db;
+    EntityManager db; // Gestionnaire d'entités pour accéder à la base de données
 
+    // Constructeur qui initialise le gestionnaire d'entités
     public HandlerProducer(EntityManager db) {
         this.db = db;
     }
+
+    // Méthode appelée lors de la réception d'une requête HTTP
     @Override
     public void handle(RoutingContext event) {
 
+        // Récupère la liste des identifiants des producteurs depuis la base de données
         List<Integer> producer = (List<Integer>) db.createNativeQuery("SELECT id FROM producer").getResultList();
         List<JsonObject> Prod = new ArrayList<>();
+        // Pour chaque producteur, on récupère ses informations détaillées
         for (Integer p : producer){ 
             JsonObject temp = getJsonById(p.toString());
             Prod.add(temp);
         }
 
+        // Retourne la liste des producteurs au format JSON
         event.json(Prod);
     }
 
+    // Méthode privée pour récupérer les informations détaillées d'un producteur à partir de son identifiant
     private JsonObject getJsonById(String id){
         
+        // Récupère les informations principales du producteur et du capteur associé
         Object[] sql = (Object[]) db.createNativeQuery("SELECT s.id,s.name,s.description,s.dtype,s.grid,p.power_source FROM Sensor as s, Producer as p WHERE s.id = " +id + " AND s.id = p.id").getSingleResult();
+        // Récupère la liste des mesures disponibles pour ce capteur
         List<Integer> sql2 = (List<Integer>) db.createNativeQuery("SELECT m.id FROM measurement AS m WHERE m.sensor = "+id ).getResultList();
+        // Récupère la liste des propriétaires (Person) associés à ce capteur
         List<Integer> sql3 = (List<Integer>) db.createNativeQuery("SELECT DISTINCT Person.id FROM Person JOIN Person_Sensor ON Person.id = Person_Sensor.person_id JOIN Sensor ON Sensor.id = Person_Sensor.Sensor_id WHERE Sensor.id = "+id).getResultList();
 
         JsonObject res = new JsonObject();
 
+        // Ajoute les informations principales dans l'objet JSON de résultat
         res.put("id", sql[0]);
         res.put("name", sql[1]);
         res.put("description",sql[2]);
@@ -50,8 +61,7 @@ public class HandlerProducer implements Handler<RoutingContext> {
         res.put("owners",sql3);
         res.put("power_source",sql[5]);
 
-        
-        
+        // Selon le type de producteur, ajoute des informations spécifiques
         if (sql[3].equals("EVCharger")){
             EVCharger charger = (EVCharger) db.find(EVCharger.class, Integer.parseInt(id));
             res.put("type", charger.getType());
@@ -68,7 +78,7 @@ public class HandlerProducer implements Handler<RoutingContext> {
             res.put("efficiency", panel.getEfficiency());
         }   
 
+        // Retourne l'objet JSON contenant toutes les informations du producteur
         return res;
-            
     }
 }
