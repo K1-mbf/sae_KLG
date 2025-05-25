@@ -62,7 +62,7 @@ public class VertxServer {
         router.get("/measurement/:id").handler(new HandlerMeasurement(this.db));
 
 
-        router.post("/ingress/windturbine").handler(new HandlerWindTurbine(this.db));
+        router.post("/ingress/windturbine").handler(new WindTurbineHandler(this.db));
 
         
         
