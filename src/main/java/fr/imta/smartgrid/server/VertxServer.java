@@ -39,7 +39,6 @@ public class VertxServer {
 
         router.get("/grids").handler(new HandlerGrid(this.db));
         router.get("/grid/:id").handler(new HandlerGrid(this.db));
-        router.get("/grids/show").handler(new HandlerGrid(this.db));
         router.get("/grid/:id/production").handler(new HandlerGrid(this.db));
         router.get("/grid/:id/consumption").handler(new HandlerGrid(this.db));
 
@@ -59,13 +58,13 @@ public class VertxServer {
         router.get("/measurement/:id/values").handler(new HandlerMeasurement(this.db));
         router.get("/measurement/:id").handler(new HandlerMeasurement(this.db));
 
-        router.post("/ingress/windturbine").handler(new WindTurbineHandler(this.db));
+       router.post("/ingress/windturbine").handler(new WindTurbineHandler(this.db));
 
         // Démarrage du serveur HTTP
         vertx.createHttpServer().requestHandler(router).listen(8080);
 
         // Démarrage du listener UDP pour les panneaux solaires
-        new SolarUdpHandler(this.vertx, this.db);
+       new SolarUdpHandler(this.vertx, this.db);
     }
 
     public static void main(String[] args) {

@@ -1,4 +1,3 @@
-
 package fr.imta.smartgrid.server;
 
 import java.util.List;
@@ -16,16 +15,28 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.persistence.EntityManager;
 
-
+/**
+ * Handler pour gérer les requêtes HTTP liées aux capteurs (Sensor).
+ */
 public class SensorHandler implements Handler<RoutingContext> {
-    EntityManager db;
+    EntityManager db; // Gestionnaire d'entités pour accéder à la base de données
 
+    /**
+     * Constructeur prenant un EntityManager.
+     * @param db EntityManager pour la base de données
+     */
     public SensorHandler(EntityManager db) {
         this.db = db;
     }
+
+    /**
+     * Méthode principale appelée à chaque requête HTTP sur la route associée.
+     * @param event Contexte de routage Vert.x
+     */
     @Override
     public void handle(RoutingContext event) {
 
+        // Affichage de debug des informations de la requête
         System.out.println("Route called: " + event.currentRoute().getName());
         System.out.println("Request HTTP method: " + event.request().method());
         System.out.println("We received these query parameters: " + event.queryParams());
@@ -33,29 +44,36 @@ public class SensorHandler implements Handler<RoutingContext> {
         System.out.println("Value for the path param 'name': " + event.pathParam("name"));
         System.out.println("We received this body: " + event.body().asString());
 
-        
+        // Traitement des requêtes GET
         if (event.request().method().toString() == "GET"){
+            // Si la route correspond à /sensor/{id} et que l'id est un nombre
             if (event.currentRoute().getName().matches("\\/sensor\\/(.*)") && event.pathParam("id").matches("[0-9]+")) {
                 JsonObject res = getJsonById(event.pathParam("id"));
                 event.json(res);
 
+            // Si la route correspond à /sensors/{kind} et que le kind est un type connu
             }else if (event.currentRoute().getName().matches("\\/sensors\\/(.*)") && event.pathParam("kind").matches("EVCharger|WindTurbine|SolarPanel")){ 
-                
+                // Récupère la liste des capteurs du type demandé
                 List<Integer> sensors_match = (List<Integer>) db.createNativeQuery("SELECT s.id FROM sensor as s WHERE s.dtype='" + event.pathParam("kind")+ "'").getResultList();
                 event.json(sensors_match);
             }
             else{
-                event.end("error 404: Not found");
+                // Route non trouvée
+                event.end("error 404: ID Not found");
             }
-        }else if (event.request().method().toString() == "POST"){
+        }
+        // Traitement des requêtes POST (mise à jour d'un capteur)
+        else if (event.request().method().toString() == "POST"){
 
-            //System.out.println("\n\n\n C'est un post wooooooo \n\n\n");
+            // Récupère le corps JSON de la requête
             JsonObject json = event.body().asJsonObject();
             String id = event.pathParam("id");
             
             if (event.pathParam("id")!=null){
+                // Recherche du capteur à modifier
                 Sensor s = (Sensor) db.find(Sensor.class, Integer.parseInt(id));
 
+                // Mise à jour des champs génériques
                 if (json.containsKey("name")) {
                     s.setName(json.getString("name"));
                 }
@@ -63,12 +81,13 @@ public class SensorHandler implements Handler<RoutingContext> {
                     s.setDescription(json.getString("description"));
                 }
                 if (json.containsKey("owners")) {
-                    s.getOwners().clear(); // Optional: clear if replacing
+                    s.getOwners().clear(); // On vide la liste si on remplace
                     for (Integer p : (List<Integer>) json.getJsonArray("owners").getList()) {
                         s.addOwner(db.find(Person.class, p));
                     }
                 }
 
+                // Mise à jour des champs spécifiques selon le type
                 if (s instanceof Producer) {
                     Producer p = (Producer) s;
                     if (json.containsKey("power_source")) {
@@ -107,29 +126,37 @@ public class SensorHandler implements Handler<RoutingContext> {
                     }
                 }
 
-                // when you want to make change to the DB you need to start a transaction
+                // Début de la transaction pour sauvegarder les modifications
                 db.getTransaction().begin();
-                // then you can register your new or modified objects to be saved
-                db.merge(s);
-                // finally you can commit the change
-                db.getTransaction().commit();
+                db.merge(s); // Enregistre les modifications
+                db.getTransaction().commit(); // Commit la transaction
 
-                
-                
+                // Réponse de succès
                 event.response().setStatusCode(200).end("Sensor updated successfully");
+            }
+            else{
+                // Route non trouvée
+                event.end("error 404: ID Not found");
             }
         }
     }
 
-    // get Json by id
+    /**
+     * Récupère un capteur et ses informations au format JSON à partir de son id.
+     * @param id identifiant du capteur
+     * @return objet JsonObject contenant les informations du capteur
+     */
     private JsonObject getJsonById(String id){
-        
+        // Récupère les informations principales du capteur
         Object[] sql = (Object[]) db.createNativeQuery("SELECT s.id,s.name,s.description,s.dtype,s.grid FROM Sensor as s WHERE s.id = " +id).getSingleResult();
+        // Récupère les identifiants des mesures associées
         List<Integer> sql2 = (List<Integer>) db.createNativeQuery("SELECT m.id FROM measurement AS m WHERE m.sensor = "+id ).getResultList();
+        // Récupère les identifiants des propriétaires
         List<Integer> sql3 = (List<Integer>) db.createNativeQuery("SELECT DISTINCT Person.id FROM Person JOIN Person_Sensor ON Person.id = Person_Sensor.person_id JOIN Sensor ON Sensor.id = Person_Sensor.Sensor_id WHERE Sensor.id = "+id).getResultList();
 
         JsonObject res = new JsonObject();
 
+        // Remplit le JSON avec les informations de base
         res.put("id", sql[0]);
         res.put("name", sql[1]);
         res.put("description",sql[2]);
@@ -137,10 +164,8 @@ public class SensorHandler implements Handler<RoutingContext> {
         res.put("grid",sql[4]);
         res.put("available_measurements",sql2);
         res.put("owners",sql3);
-        
 
-        
-        
+        // Ajoute les champs spécifiques selon le type de capteur
         if (sql[3].equals("EVCharger")){
             EVCharger charger = (EVCharger) db.find(EVCharger.class, Integer.parseInt(id));
             res.put("max_power", db.createNativeQuery("SELECT c.max_power FROM consumer as c WHERE c.id = " +id ).getSingleResult());            
@@ -164,4 +189,3 @@ public class SensorHandler implements Handler<RoutingContext> {
     }
 
 }
-
