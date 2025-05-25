@@ -32,7 +32,7 @@ public class WindTurbineHandler {
         this.db = db;
     }
 
-    public void handle(RoutingContext event) {
+    public void handle(RoutingContext event) {{
         try {
             JsonObject body = event.body().asJsonObject();
             if (body == null) {
@@ -61,7 +61,7 @@ public class WindTurbineHandler {
             WindTurbine turbine = db.find(WindTurbine.class, turbineId);
             if (turbine == null) {
                 event.response().setStatusCode(404).end("Turbine not found");
-                return;
+                return;sae_KLG
             }
 
             Sensor sensor = turbine;
@@ -90,13 +90,33 @@ public class WindTurbineHandler {
 
             db.getTransaction().commit();
 
+            
             // Recalcul de l’énergie produite
             double energyWh = computeTotalEnergy(powerMeasurement); // Wh
 
+            // Chercher ou créer le Measurement "TotalEnergyProduced"
+            Measurement energyMeasurement = findMeasurement(sensor, "TotalEnergyProduced");
+            if (energyMeasurement == null) {
+                energyMeasurement = new Measurement();
+                energyMeasurement.setName("TotalEnergyProduced");
+                energyMeasurement.setUnit("Wh");
+                energyMeasurement.setSensor(sensor);
+                db.getTransaction().begin();
+                db.persist(energyMeasurement);
+                db.getTransaction().commit();
+            }
+
+            // Créer un nouveau DataPoint pour l’énergie
+            DataPoint dpEnergy = new DataPoint();
+            dpEnergy.setMeasurement(energyMeasurement);
+            dpEnergy.setTimestamp(timestamp);
+            dpEnergy.setValue(energyWh);
+
             db.getTransaction().begin();
-            turbine.setTotalEnergyProduced(energyWh);
-            db.merge(turbine);
+            db.persist(dpEnergy);
             db.getTransaction().commit();
+
+            
 
             JsonObject response = new JsonObject().put("status", "success");
             event.response()
